@@ -27,78 +27,164 @@ const toLua = (obj) => {
 const FORMATS = ["json", "yaml", "toml", "lua"];
 const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
 
+const getFormatHint = (format, error) => {
+  const hints = {
+    json: error.includes("Unexpected token")
+      ? " Check for trailing commas or unquoted keys."
+      : "",
+    yaml: error.includes("bad indentation")
+      ? " Check YAML indentation (use spaces, not tabs)."
+      : "",
+    toml: error.includes("Expected")
+      ? " Check for missing quotes around strings."
+      : "",
+    lua: error.includes("unexpected symbol")
+      ? " Check Lua table syntax { key = value }."
+      : "",
+  };
+  return hints[format] || "";
+};
+
 app.post("/convert", async (c) => {
   const body = await c.req.json().catch(() => null);
 
-  // Validate body
+  // Validate 'body'
   if (!body) {
-    return c.json({ success: false, error: "Invalid JSON body" }, 400);
+    return c.json(
+      {
+        success: false,
+        error: "Invalid JSON body",
+        code: "INVALID_BODY",
+      },
+      400,
+    );
   }
 
   const { from, to, content } = body;
 
-  // Validate fields
+  // Validate 'from'
   if (!from || typeof from !== "string") {
     return c.json(
-      { success: false, error: "Missing or invalid 'from' format" },
+      {
+        success: false,
+        error:
+          "Missing or invalid 'from' format. Expected: json, yaml, toml, or lua",
+        code: "INVALID_FROM",
+      },
       400,
     );
   }
 
-  if (!to || typeof to !== "string") {
-    return c.json(
-      { success: false, error: "Missing or invalid 'to' format" },
-      400,
-    );
-  }
-
-  if (!content || typeof content !== "string") {
-    return c.json(
-      { success: false, error: "Missing or invalid 'content'" },
-      400,
-    );
-  }
-
-  // Validate formats are supported
   if (!FORMATS.includes(from)) {
     return c.json(
-      { success: false, error: `Unsupported 'from' format: ${from}` },
+      {
+        success: false,
+        error: `Unsupported 'from' format: ${from}`,
+        code: "UNSUPPORTED_FROM",
+      },
+      400,
+    );
+  }
+
+  // Validate 'to'
+  if (!to || typeof to !== "string") {
+    return c.json(
+      {
+        success: false,
+        error:
+          "Missing or invalid 'to' format. Expected: json, yaml, toml, or lua",
+        code: "INVALID_TO",
+      },
       400,
     );
   }
 
   if (!FORMATS.includes(to)) {
     return c.json(
-      { success: false, error: `Unsupported 'to' format: ${to}` },
+      {
+        success: false,
+        error: `Unsupported format: '${to}'. Supported: ${FORMATS.join(", ")}`,
+        code: "UNSUPPORTED_TO",
+      },
+      400,
+    );
+  }
+
+  if (!content || typeof content !== "string") {
+    return c.json(
+      {
+        success: false,
+        error: "Missing or invalid 'content'. Expected non-empty string",
+        code: "INVALID_CONTENT",
+      },
       400,
     );
   }
 
   // Validate size
   if (content.length > MAX_CONTENT_SIZE) {
-    return c.json({ success: false, error: "Content exceeds 1MB limit" }, 413);
+    return c.json(
+      {
+        success: false,
+        error: `Content exceeds 1MB limit (${(content.length / 1024 / 1024).toFixed(2)}MB)`,
+        code: "CONTENT_TOO_LARGE",
+      },
+      413,
+    );
   }
 
   try {
     // Parse 'from' into JS Object
     let data;
-    if (from === "json") data = JSON.parse(content);
-    elseif (from === "yaml") data = yaml.load(content);
-    elseif (from === "toml") data = parseToml(content);
-    elseif (from === "lua") {
-      data = luaparse.parse(content, { wait: false });
+    try {
+      if (from === "json") data = JSON.parse(content);
+      else if (from === "yaml") data = yaml.load(content);
+      else if (from === "toml") data = parseToml(content);
+      else if (from === "lua") data = luaparse.parse(content, { wait: false });
+    } catch (parseErr) {
+      const hint = getFormatHint(from, parseErr.message);
+      return c.json(
+        {
+          success: false,
+          error: `Failed to parse ${from.toUpperCase()}:
+          ${parseErr.message}${hint}`,
+          code: `PARSE_${from.toUpperCase()}_FAILED`,
+          format: from,
+        },
+        422,
+      );
     }
 
     // Stringify Object into 'to' format
     let result;
-    if (to === "json") result = JSON.stringify(data, null, 2);
-    elseif (to === "yaml") result = yaml.dump(data);
-    elseif (to === "toml") result = stringifyToml(data);
-    elseif (to === "lua") result = toLua(data);
+    try {
+      if (to === "json") result = JSON.stringify(data, null, 2);
+      else if (to === "yaml") result = yaml.dump(data);
+      else if (to === "toml") result = stringifyToml(data);
+      else if (to === "lua") result = toLua(data);
+    } catch (stringifyErr) {
+      return c.json(
+        {
+          success: false,
+          error: `Failed to convert to ${to.toUpperCase()}:
+          ${stringifyErr.message}`,
+          code: `STRINGIFY_${to.toUpperCase()}_FAILED`,
+          conversion: `${from} -> ${to}`,
+        },
+        422,
+      );
+    }
 
     return c.json({ success: true, result });
   } catch (err) {
-    return c.json({ success: false, error: err.message }, 422);
+    return c.json(
+      {
+        success: false,
+        error: "Internal server error",
+        code: "INTERNAL_ERROR",
+      },
+      500,
+    );
   }
 });
 
