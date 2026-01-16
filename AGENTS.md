@@ -59,7 +59,6 @@ End-of-day devlog entries go in `.notes/DEVLOG.md` with timestamps.
 
 ## Next Steps for Development
 
-2. Enhance `toLua` to properly handle arrays and deeply nested objects
 3. Add input validation for request parameters (`from`, `to`, `content`)
 4. Add comprehensive error handling for unsupported format combinations
 5. Create unit tests for each format conversion
