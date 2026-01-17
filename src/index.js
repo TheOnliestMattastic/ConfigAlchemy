@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } form "hono/cors";
 import yaml from "js-yaml";
 import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import luaparse from "luaparse";
@@ -73,6 +74,8 @@ const getFormatHint = (format, error) => {
 // HOW:  Validates input, parses source, converts to target, with error handling
 // NOTE: Returns JSON with success flag, result/error, and error codes for RapidAPI
 // -----------------------------------------------------------------------------
+
+app.use('/convert', cors());
 
 app.post("/convert", async (c) => {
   const rapidSecret = c.req.header("x-rapidapi-proxy-secret");
