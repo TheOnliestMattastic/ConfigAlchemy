@@ -5,7 +5,15 @@ import luaparse from "luaparse";
 
 const app = new Hono();
 
-// Helper to turn a JS object into a Lua table string
+// =============================================================================
+// TO_LUA CONVERTER
+// -----------------------------------------------------------------------------
+// WHAT: Recursively converts JavaScript objects/arrays into Lua table syntax
+// WHY:  Lua requires specific formatting for tables; this ensures valid output
+// HOW:  Handles primitives first, then arrays (positional), then objects (key=value)
+// NOTE: Escapes quotes in strings; null becomes nil; uses 1-based indexing for arrays
+// -----------------------------------------------------------------------------
+
 const toLua = (obj) => {
   // Handle primitives
   if (obj === null) return "nil";
@@ -23,9 +31,21 @@ const toLua = (obj) => {
   return `{ ${parts.join(", ")} }`;
 };
 
-// Supported formats
+// =============================================================================
+// CONFIGURATION
+// -----------------------------------------------------------------------------
+
 const FORMATS = ["json", "yaml", "toml", "lua"];
 const MAX_CONTENT_SIZE = 1024 * 1024; // 1MB
+
+// =============================================================================
+// ERROR HINT GENERATOR
+// -----------------------------------------------------------------------------
+// WHAT: Provides format-specific error hints based on error message patterns
+// WHY:  Helps users fix common mistakes without deep debugging
+// HOW:  Matches error keywords (Unexpected token, bad indentation) to hints
+// NOTE: Returns empty string if no hint matches; keeps errors concise
+// -----------------------------------------------------------------------------
 
 const getFormatHint = (format, error) => {
   const hints = {
@@ -45,10 +65,19 @@ const getFormatHint = (format, error) => {
   return hints[format] || "";
 };
 
+// =============================================================================
+// POST /CONVERT ENDPOINT
+// -----------------------------------------------------------------------------
+// WHAT: Main API endpoint that converts config files between formats
+// WHY:  Provides single entry point for all conversion requests
+// HOW:  Validates input, parses source, converts to target, with error handling
+// NOTE: Returns JSON with success flag, result/error, and error codes for RapidAPI
+// -----------------------------------------------------------------------------
+
 app.post("/convert", async (c) => {
   const body = await c.req.json().catch(() => null);
 
-  // Validate 'body'
+  // Validate request body is valid JSON
   if (!body) {
     return c.json(
       {
@@ -62,7 +91,11 @@ app.post("/convert", async (c) => {
 
   const { from, to, content } = body;
 
-  // Validate 'from'
+  // ---------------------------------------------------------------------------
+  // INPUT VALIDATION
+  // ---------------------------------------------------------------------------
+
+  // Validate 'from' format parameter exists and is string
   if (!from || typeof from !== "string") {
     return c.json(
       {
@@ -75,6 +108,7 @@ app.post("/convert", async (c) => {
     );
   }
 
+  // Validate 'from' is in supported formats list
   if (!FORMATS.includes(from)) {
     return c.json(
       {
@@ -86,7 +120,7 @@ app.post("/convert", async (c) => {
     );
   }
 
-  // Validate 'to'
+  // Validate 'to' format parameter exists and is string
   if (!to || typeof to !== "string") {
     return c.json(
       {
@@ -99,6 +133,7 @@ app.post("/convert", async (c) => {
     );
   }
 
+  // Validate 'to' is in supported formats list
   if (!FORMATS.includes(to)) {
     return c.json(
       {
@@ -110,6 +145,7 @@ app.post("/convert", async (c) => {
     );
   }
 
+  // Validate 'content' exists and is non-empty string
   if (!content || typeof content !== "string") {
     return c.json(
       {
@@ -121,7 +157,7 @@ app.post("/convert", async (c) => {
     );
   }
 
-  // Validate size
+  // Validate content size doesn't exceed 1MB limit
   if (content.length > MAX_CONTENT_SIZE) {
     return c.json(
       {
@@ -133,14 +169,29 @@ app.post("/convert", async (c) => {
     );
   }
 
+  if (from === "lua") {
+    return c.json(
+      {
+        success: false,
+        error: "Lua input parsing is currently disabled (Coming Soon).",
+        code: "UNSUPPORTED_FROM_LUA",
+      },
+      400,
+    );
+  }
+
+  // ===========================================================================
+  // FORMAT CONVERSION LOGIC
+  // ---------------------------------------------------------------------------
+
   try {
-    // Parse 'from' into JS Object
+    // Parse source format into JavaScript object
     let data;
     try {
       if (from === "json") data = JSON.parse(content);
       else if (from === "yaml") data = yaml.load(content);
       else if (from === "toml") data = parseToml(content);
-      else if (from === "lua") data = luaparse.parse(content, { wait: false });
+      // else if (from === "lua") data = luaparse.parse(content, { wait: false });
     } catch (parseErr) {
       const hint = getFormatHint(from, parseErr.message);
       return c.json(
@@ -155,13 +206,15 @@ app.post("/convert", async (c) => {
       );
     }
 
-    // Stringify Object into 'to' format
+    // Convert JavaScript object to target format
     let result;
     try {
       if (to === "json") result = JSON.stringify(data, null, 2);
       else if (to === "yaml") result = yaml.dump(data);
       else if (to === "toml") result = stringifyToml(data);
-      else if (to === "lua") result = toLua(data);
+      else if (to === "lua") {
+        result = "return " + toLua(data);
+      }
     } catch (stringifyErr) {
       return c.json(
         {
@@ -177,6 +230,7 @@ app.post("/convert", async (c) => {
 
     return c.json({ success: true, result });
   } catch (err) {
+    // Catch unexpected errors not covered by format-specific handlers
     return c.json(
       {
         success: false,

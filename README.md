@@ -1,10 +1,10 @@
 # ConfigAlchemy
 
-A lightweight config file format converter API. Converts between JSON, YAML, TOML, and Lua formats.
+A lightweight config file format converter API. Converts between JSON, YAML, and TOML formats, with Lua table output support.
 
 ## Features
 
-- Convert between JSON, YAML, TOML, and Lua
+- Convert between JSON, YAML, TOML, and Lua table output
 - Built with Hono for fast, lightweight request handling
 - Deploy to Cloudflare Workers
 - Simple REST API interface
@@ -64,7 +64,7 @@ Converts config content from one format to another.
 
 **Parameters:**
 
-- `from` (string): Source format (`json`, `yaml`, `toml`, `lua`)
+- `from` (string): Source format (`json`, `yaml`, `toml`)
 - `to` (string): Target format (`json`, `yaml`, `toml`, `lua`)
 - `content` (string): Config content to convert
 
@@ -126,12 +126,13 @@ package.json        # Dependencies and scripts
 - **hono**: Web framework
 - **js-yaml**: YAML parsing and stringification
 - **smol-toml**: TOML parsing and stringification
-- **luaparse**: Lua parsing
+- **luaparse**: Lua output generation
 
 ## Notes
 
-- The Lua output format uses `["key"] = value` syntax for all keys
 - Input validation and error handling are implemented for all format conversions
+- Lua format is currently output-only (JSON, YAML, TOML → Lua)
+- Lua input parsing will be added in v1.1
 - See `AGENTS.md` for development workflow and known issues
 
 ## License

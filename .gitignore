@@ -22,6 +22,7 @@ pnpm-debug.log*
 dist/
 build/
 .out/
+.wrangler/
 
 # OS files
 Thumbs.db

@@ -4,13 +4,13 @@ Project-specific guidance for ConfigAlchemy development.
 
 ## Project Overview
 
-ConfigAlchemy is a lightweight config file format converter API built with Hono. It converts between JSON, YAML, TOML, and Lua formats.
+ConfigAlchemy is a lightweight config file format converter API built with Hono. It converts between JSON, YAML, and TOML formats. Lua support is planned for a future release.
 
 **Tech Stack:**
 
 - Hono (web framework)
 - Cloudflare Workers (runtime)
-- Node.js dependencies: js-yaml, smol-toml, luaparse
+- Node.js dependencies: js-yaml, smol-toml
 
 ## Development Workflow
 
@@ -57,7 +57,22 @@ Follow the standard `.gitignore` and `.notes` conventions from personal AGENTS.m
 
 End-of-day devlog entries go in `.notes/DEVLOG.md` with timestamps.
 
+## Current Version (v1.0)
+
+**Supported formats:**
+- JSON (input/output)
+- YAML (input/output)
+- TOML (input/output)
+- Lua (output only)
+
+**Lua support status:**
+- Lua table output is fully functional (`toLua` function)
+- Lua input parsing is disabled pending v1.1 release
+- Validation rejects `lua` as `from` format parameter only
+
 ## Next Steps for Development
 
-4. Add comprehensive error handling for unsupported format combinations
-5. Create unit tests for each format conversion
+1. Add comprehensive error handling for unsupported format combinations
+2. Create unit tests for each format conversion
+3. Add Lua format support (parsing and stringification)
+4. Consider additional formats (XML, CSV, INI)
