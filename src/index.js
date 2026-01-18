@@ -78,8 +78,8 @@ const getFormatHint = (format, error) => {
 app.use("/convert", cors());
 
 app.post("/convert", async (c) => {
-  const rapidSecret = c.req.header("x-rapidapi-proxy-secret");
-  if (rapidSecret !== "52b69850-f3af-11f0-8b51-f73a198fecf8") {
+  const rapidSecret = c.env.RAPID_SECRET;
+  if (rapidSecret !== c.req.header("x-rapidapi-proxy-secret")) {
     return c.json({ error: "Unauthorized access. Please use RapidAPI." }, 401);
   }
   const body = await c.req.json().catch(() => null);
